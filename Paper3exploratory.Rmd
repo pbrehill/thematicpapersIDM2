@@ -1,0 +1,529 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r}
+# Attach packages
+library(tidyverse)
+library(car)
+library(RcmdrMisc)
+
+# Read in data
+data <- read_csv('partial_dims.csv')
+data$Province_ind <- car::recode(data$Province_ind, "1 = 'Central'; 2 = 'Guadalcanal'")
+
+women <- data %>% filter(Gender_ind == 'Female')
+```
+
+```{r}
+data$Education_level_completion.highest_recode <- factor(data$Education_level_completion.highest, ordered = TRUE, labels = c('No schooling', 'Some primary', 'Primary', 'Some secondary/high school', 'Secondary/high school', 'Some tertiary: Vocational/ technical', 'Some tertiary: university', 'Tertiary: Vocational/technical', 'Tertiary: university', 'Refused to answer'))
+```
+
+
+```{r, include = FALSE}
+deprive <- function (raw_score){
+  raw_score <- raw_score * 4
+  cats_score <- ordered(cut(raw_score ,breaks=c(0,1.001,2.001,3.001,4.001),
+           labels=factor(c("Most deprived","Deprived","Somewhat deprived","Least deprived")),right = FALSE))
+  return(cats_score)}
+
+
+# Initialise easy summary function
+
+summarise_dim_score <- function (score, df = data, factorise = TRUE, by_province = FALSE) {
+  if (factorise) {
+    df$fact_score <- deprive(pull(data[score]))
+  } else {
+    df$fact_Score <- pull(data[score])
+  }
+  
+  if (!by_province) {
+    df %>%
+    select(fact_score, Gender_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(fact_score, Gender_ind) %>%
+    count() %>%
+    group_by(Gender_ind) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = fact_score, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      scale_x_discrete(limits = rev(levels(data$fact_score))) +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1))
+  } else if (by_province) {
+  df %>%
+    select(fact_score, Gender_ind, Province_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(fact_score, Gender_ind, Province_ind) %>%
+    count() %>%
+    group_by(Gender_ind, Province_ind) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = fact_score, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      scale_x_discrete(limits = rev(levels(data$fact_score))) +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1)) +
+      facet_grid(cols = vars(Province_ind))
+}
+  }
+```  
+
+
+```{r}
+# Initialise item score summary
+summarise_item <- function(x, recode_string, by_province = FALSE) {
+  if(class(recode_string) == "character") {
+    data$x_recode <- car::recode(pull(data[,x]), recode_string)
+  } else {
+    data$x_recode <- pull(data[,x])
+  }
+  
+  if(!by_province) {
+    data %>%
+    select(x_recode, Gender_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(x_recode, Gender_ind) %>%
+    count() %>%
+    group_by(Gender_ind) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = x_recode, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1))
+  } else if (by_province) {
+    data %>%
+    select(x_recode, Gender_ind, Province_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(x_recode, Gender_ind, Province_ind) %>%
+    count() %>%
+    group_by(Gender_ind, Province_ind) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = x_recode, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1)) +
+      facet_grid(cols = vars(Province_ind))
+  }
+}
+
+```
+
+```{r}
+summarise_dim_scores <- function (score1, score2, df = data, factorise = TRUE, by_province = FALSE) {
+  if (factorise) {
+    df$fact_score1 <- deprive(pull(data[score1]))
+  } else {
+    df$fact_score1 <- pull(data[score1])
+  }
+  
+  if (factorise) {
+    df$fact_score2 <- deprive(pull(data[score2]))
+  } else {
+    df$fact_Score2 <- pull(data[score2])
+  }
+  
+  if (!by_province) {
+    df %>%
+    select(fact_score1, Gender_ind, fact_score2) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(fact_score1, fact_score2, Gender_ind) %>%
+    count() %>%
+    group_by(Gender_ind, fact_score2) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = fact_score1, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      scale_x_discrete(limits = rev(levels(data$fact_score))) +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1)) +
+      facet_grid(cols = vars(fact_score2))
+    
+  } else if (by_province) {
+  df %>%
+    select(fact_score1, fact_score2, Gender_ind, Province_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(fact_score1, fact_score2, Gender_ind, Province_ind) %>%
+    count() %>%
+    group_by(Gender_ind, Province_ind, fact_score2) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = fact_score1, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      scale_x_discrete(limits = rev(levels(data$fact_score))) +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1)) +
+      facet_grid(cols = vars(Province_ind), rows = vars(fact_score2))
+}
+  }
+```  
+
+
+```{r}
+# Initialise item score summary
+summarise_items <- function(x, y, recode_string1 = "", recode_string2 = "", by_province = FALSE) {
+  if(class(recode_string1) == "character" & length(recode_string1) > 0) {
+    data$x_recode <- car::recode(pull(data[,x]), recode_string1)
+  } else {
+    data$x_recode <- pull(data[,x])
+  }
+  
+  if(class(recode_string2) == "character" & length(recode_string2) > 0) {
+    data$y_recode <- car::recode(pull(data[,y]), recode_string2)
+  } else {
+    data$y_recode <- pull(data[,y])
+  }
+  
+  if(!by_province) {
+    data %>%
+    select(x_recode, y_recode, Gender_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(x_recode, y_recode, Gender_ind) %>%
+    count() %>%
+    group_by(Gender_ind, y_recode) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = x_recode, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1)) +
+      facet_grid(cols = vars(y_recode))
+  } else if (by_province) {
+    data %>%
+    select(x_recode, y_recode, Gender_ind, Province_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(x_recode, y_recode, Gender_ind, Province_ind) %>%
+    count() %>%
+    group_by(Gender_ind, y_recode, Province_ind) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = x_recode, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1)) +
+      facet_grid(cols = vars(Province_ind), rows = vars(y_recode))
+  }
+}
+
+```
+
+
+## Relevent scores ##
+
+**Educational attainment**
+
+```{r}
+data %>%
+  select(Education_level_completion.highest_recode, Gender_ind) %>%
+  filter(Gender_ind == 'Male' | Gender_ind == 'Female') %>%
+  group_by(Education_level_completion.highest_recode, Gender_ind) %>%
+  na.omit() %>%
+  count() %>%
+  group_by(Gender_ind) %>%
+  mutate(prop = prop.table(n)) %>%
+  ggplot(aes(x = Education_level_completion.highest_recode, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), hjust = -0.3)) +
+  coord_flip()
+```
+
+
+**Voice**
+
+```{r}
+summarise_dim_score('score13')
+```
+
+**Public voice**
+
+```{r}
+summarise_dim_score('score13.1')
+```
+
+**Private voice**
+
+```{r}
+summarise_dim_score('score13.2')
+```
+
+**Paid work theme**
+
+```{r}
+summarise_dim_score('score15.1')
+```
+
+**Paid work status**
+
+```{r}
+summarise_dim_score('score15.1.1')
+```
+
+**Home ownership**
+
+```{r}
+summarise_item('Assets_dwelling.1', "1 = 'Yes'; 2 = 'No'; 94 = 'Do not know'; 97 = 'Refused to answer'")
+```
+
+
+## Covariation ##
+
+####Ownership of assets and voice items####
+
+**Home ownership and voice within households**
+
+```{r}
+data$DepCat13.2 <- deprive(data$score13.2)
+summarise_items('Assets_dwelling.1', 'DepCat13.2', "1 = 'Yes'; 2 = 'No'; 94 = 'Dont know'") + ggtitle('Do you own your dwelling?')
+```
+
+Interestingly we see here an effect that is much more pronounced for men than women. Part of this may be a function of generations. Adults who live with the homeowner but are not themselves the homeowner (e.g. adult children, dependent parents) may be relatively disenfranchised within the home due to not being the head of household. The reason we don't see this pattern as clearly for women is that it might be that a woman in a couple may own their home along with a male partner but due to gender roles have less of a voice within the house (as can be seen in the dimension descriptive visualisation).
+
+One way to test this effect is to look at women who own their home with someone else versus women who own a home alone.
+
+```{r}
+data$Home_others_recode <- car::recode(data$Assets_dwelling.others, "1 = 'Yes'; 2 = 'No'; else = NA")
+
+data %>%
+  filter(Gender_ind != 'Other', Assets_dwelling.1 == 1) %>%
+  select(Gender_ind, Home_others_recode, DepCat13.2) %>%
+  na.omit() %>%
+    group_by(Home_others_recode, Gender_ind, DepCat13.2) %>%
+    count() %>%
+    group_by(Gender_ind, Home_others_recode) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = DepCat13.2, y = prop, fill = Home_others_recode)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), hjust = -0.2)) +
+      facet_wrap(vars(Gender_ind)) +
+  scale_fill_brewer(palette="Set2") +
+  coord_flip()
+```
+
+For a woman, owning one's own home doesn't have a huge effect on scores in the personal theme of the voice dimension. There might still be a head of household effect, though if that's the case, they are masked by other factors (e.g. relative poverty of single mother household).
+
+**Other assets**
+
+Agricultural land
+
+```{r}
+summarise_items('Assets_agland', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own agricultural land?')
+```
+
+Bicycle
+
+```{r}
+summarise_items('Assets_bicycle', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a bicycle?')
+```
+
+Business equipment
+
+```{r}
+summarise_items('Assets_businessequipment', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own business equipment?')
+```
+
+Car / van / bus
+
+```{r}
+summarise_items('Assets_carvanbus', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a car, van or bus?')
+```
+
+Cellphone
+
+```{r}
+summarise_items('Assets_cellphone', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a cellphone?')
+```
+
+Computer
+
+```{r}
+summarise_items('Assets_computer', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a computer?')
+```
+
+Internet connection
+
+```{r}
+summarise_items('Assets_internetconnection', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you have an internet connection')
+```
+
+Machete
+
+Car / van / bus
+
+```{r}
+summarise_items('Assets_machete', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a machete?')
+```
+
+Land
+
+```{r}
+summarise_items('Assets_land', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own land?')
+```
+
+Large livestock
+
+```{r}
+summarise_items('Assets_largelivestock', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own large livestock?')
+```
+
+Small livestock
+
+```{r}
+summarise_items('Assets_smalllivestock', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own small livestock?')
+```
+
+Poultry or farmed fish
+
+```{r}
+summarise_items('Assets_fishpoultry', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own farmed fish or poultry?')
+```
+
+Sewing machine
+
+```{r}
+summarise_items('Assets_sewingmachine', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a sewing machine?')
+```
+
+Car / van / bus
+
+```{r}
+summarise_items('Assets_refrigerator', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a refrigerator?')
+```
+
+Motorboat
+
+```{r}
+summarise_items('Assets_motorboat', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a motorboat?')
+```
+
+Non-motor boat
+
+```{r}
+summarise_items('Assets_nonmotorboat', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a non-motor boat?')
+```
+
+Radio
+
+```{r}
+summarise_items('Assets_radio', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a radio?')
+```
+
+TV
+
+```{r}
+summarise_items('Assets_television', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a TV?')
+```
+
+Hand hoe
+
+```{r}
+summarise_items('Assets_handhoe', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a hand hoe?')
+```
+
+Tractor
+
+```{r}
+summarise_items('Assets_tractor', 'DepCat13.2', "1:4 = 'Yes or can access'; 5 = 'No'; 97 = 'Refused'; else = NA") + ggtitle('Do you own a tractor?')
+```
+
+#### Paid work and voice ####
+
+First we'll look at the theme level at the effect paid work has on voice within households and in public.
+
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.1) + deprive(women$score13.1)))
+
+```
+
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.1) + deprive(women$score13.2)))
+```
+
+By province
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.1) + deprive(women$score13.1) + women$Province_ind))
+
+```
+
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.1) + deprive(women$score13.2) + women$Province_ind))
+```
+
+#### Unpaid work and voice ####
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.2) + deprive(women$score13.1)))
+```
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.2) + deprive(women$score13.2)))
+```
+
+By province
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.2) + deprive(women$score13.1) + women$Province_ind))
+```
+
+```{r}
+colPercents(xtabs(~deprive(women$score15.2) + deprive(women$score13.2) + women$Province_ind))
+```
+
+#### Educational attainment and voice ####
+
+**Public voice**
+
+```{r}
+women$Education_level_completion.highest_recode <- factor(women$Education_level_completion.highest, ordered = TRUE, labels = c('No schooling', 'Some primary', 'Primary', 'Some secondary/high school', 'Secondary/high school', 'Some tertiary: Vocational/ technical', 'Some tertiary: university', 'Tertiary: Vocational/technical', 'Tertiary: university'))
+
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score13.1)))
+```
+
+By province
+
+```{r}
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score13.1) + women$Province_ind))
+```
+
+
+**Within household**
+
+```{r}
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score13.2)))
+```
+
+By province
+
+```{r}
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score13.2) + women$Province_ind))
+```
+
+
+#### Educational attainment and work ####
+
+**Paid**
+
+```{r}
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score15.1)))
+```
+
+By province
+
+```{r}
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score15.1) + women$Province_ind))
+```
+
+
+**Unpaid**
+
+```{r}
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score15.2)))
+```
+
+By province
+
+```{r}
+colPercents(xtabs(~women$Education_level_completion.highest_recode + deprive(women$score15.2) + women$Province_ind))
+```

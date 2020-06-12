@@ -1,0 +1,189 @@
+---
+title: "Assets by gender"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+# Attach packages
+library(tidyverse)
+library(car)
+library(RcmdrMisc)
+
+# Read in data
+data <- read_csv('partial_dims.csv')
+data$Province_ind <- car::recode(data$Province_ind, "1 = 'Central'; 2 = 'Guadalcanal'")
+
+women <- data %>% filter(Gender_ind == 'Female')
+```
+
+```{r}
+# Initialise item score summary
+summarise_item <- function(x, recode_string = FALSE, by_province = FALSE) {
+  if(class(recode_string) == "character") {
+    data$x_recode <- car::recode(pull(data[,x]), recode_string)
+  } else {
+    data$x_recode <- pull(data[,x])
+  }
+  
+  if(!by_province) {
+    data %>%
+    select(x_recode, Gender_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(x_recode, Gender_ind) %>%
+    count() %>%
+    group_by(Gender_ind) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = x_recode, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1))
+  } else if (by_province) {
+    data %>%
+    select(x_recode, Gender_ind, Province_ind) %>%
+    filter(Gender_ind =='Male' | Gender_ind == 'Female') %>%
+    na.omit() %>%
+    group_by(x_recode, Gender_ind, Province_ind) %>%
+    count() %>%
+    group_by(Gender_ind, Province_ind) %>%
+    mutate(prop = prop.table(n)) %>%
+    ggplot(aes(x = x_recode, y = prop, fill = Gender_ind)) +
+      geom_col(position = 'dodge') +
+      geom_text(size = 3, position = position_dodge(width = 1), aes(label = scales::percent(prop, 2), vjust = -1)) +
+      facet_grid(cols = vars(Province_ind))
+  }
+}
+
+```
+
+Get list of assets and break down by gender
+```{r}
+list_plots <- data %>%
+  select(contains('Assets_')) %>%
+  select(-contains('.')) %>%
+  names() %>%
+  map(~summarise_item(.x, "1 = 'Own by myself'; 2 ='Own with others'; 3 ='My tribe owns'; 4 ='I have access to/am allowed to use it'; 5 = 'No'; 6 = 'Refused'; 94 = 'Don`t know'") + ggtitle(.x))
+
+```
+
+```{r}
+summarise_item('Assets_dwelling.1', "1 = 'Yes'; 2 = 'No'; 94 = 'Don`t know'") + ggtitle('Dwelling')
+```
+
+```{r}
+summarise_item('Assets_dwelling.others', "1 = 'By myself'; 2 = 'With others'; 94 = 'I don`t know'; 97 = 'Refused to answer'") + ggtitle('Dwelling owned with others?')
+```
+
+
+```{r}
+summarise_item('Assets_land', "1 = 'Yes'; 2 = 'No'; 94 = 'Don`t know'") + ggtitle('Land')
+```
+
+```{r}
+summarise_item('Assets_land.others', "1 = 'By myself'; 2 = 'With others'; 94 = 'I don`t know'; 97 = 'Refused to answer'") + ggtitle('Land owned with others?')
+```
+
+```{r}
+list_plots[[3]]
+```
+
+```{r}
+list_plots[[4]]
+```
+
+```{r}
+list_plots[[4]]
+```
+
+```{r}
+list_plots[[5]]
+```
+
+```{r}
+list_plots[[6]]
+```
+
+```{r}
+list_plots[[7]]
+```
+
+```{r}
+list_plots[[8]]
+```
+
+```{r}
+list_plots[[9]]
+```
+
+```{r}
+list_plots[[10]]
+```
+
+```{r}
+list_plots[[11]]
+```
+
+```{r}
+list_plots[[12]]
+```
+
+```{r}
+list_plots[[13]]
+```
+
+```{r}
+list_plots[[14]]
+```
+
+```{r}
+list_plots[[15]]
+```
+
+```{r}
+list_plots[[16]]
+```
+
+```{r}
+list_plots[[17]]
+```
+
+```{r}
+list_plots[[18]]
+```
+
+```{r}
+list_plots[[19]]
+```
+
+```{r}
+list_plots[[20]]
+```
+
+```{r}
+list_plots[[21]]
+```
+
+```{r}
+list_plots[[22]]
+```
+
+```{r}
+list_plots[[23]]
+```
+
+```{r}
+list_plots[[24]]
+```
+
+```{r}
+list_plots[[25]]
+```
+
+```{r}
+list_plots[[26]]
+```
+
+```{r}
+summarise_item('Assets_forcedsale', "1 = 'Yes'; 2 = 'No'; 94 = 'Don`t know'") + ggtitle('Forced to sell assets due to hardship')
+```
